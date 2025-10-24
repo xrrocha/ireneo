@@ -1,0 +1,270 @@
+/**
+ * Transaction API for Ireneo
+ *
+ * ==============================================================================
+ * ARCHITECTURE: TRANSACTION ISOLATION VIA DELTA TRACKING
+ * ==============================================================================
+ *
+ * Transactions provide explicit control over when changes are persisted,
+ * essential for UI applications where users expect "save" and "cancel" buttons.
+ *
+ * DESIGN DECISION: Delta Tracking vs. Copy-on-Write
+ *
+ * We considered two approaches:
+ *
+ * 1. **Copy-on-Write** (not chosen)
+ *    - Clone entire memory image for each transaction
+ *    - Pros: Simple, isolated, no special proxies needed
+ *    - Cons: O(n) memory for every transaction, slow for large graphs
+ *    - Verdict: Too expensive for UI use cases (frequent edits)
+ *
+ * 2. **Delta Tracking** (chosen)
+ *    - Track only changed paths in a Map<string, value>
+ *    - Pros: O(changes) memory, fast, supports checkpoint/restore
+ *    - Cons: More complex, requires transaction-specific proxies
+ *    - Verdict: Optimal for UI with many small edits
+ *
+ * HOW IT WORKS:
+ *
+ * 1. **Base Memory Image** (baseRaw)
+ *    - Plain JavaScript object (NOT proxied)
+ *    - Contains all persisted state
+ *    - Read from persistent EventLog on startup
+ *    - Only modified during save()
+ *
+ * 2. **Delta Layer** (DeltaManager)
+ *    - Map<path, value> tracking uncommitted changes
+ *    - Example: { "user.name": "Alice", "user.age": 30 }
+ *    - Deletions marked with special DELETED symbol
+ *    - Checkpoint/restore for rollback support
+ *
+ * 3. **Transaction Proxy** (createTransactionProxy)
+ *    - Wraps baseRaw in a special proxy
+ *    - GET: checks delta first, falls back to base
+ *    - SET: writes to delta, NOT to base
+ *    - DELETE: marks as deleted in delta
+ *    - Returns nested transaction proxies (not Ireneo proxies)
+ *
+ * 4. **Save Flow**:
+ *    - Sort delta entries by depth (parents before children)
+ *    - Unwrap all proxies recursively (preserve identity via shared WeakMap)
+ *    - Apply each change to baseRaw
+ *    - Log event to persistent EventLog
+ *    - Clear delta
+ *
+ * 5. **Discard Flow**:
+ *    - Simply clear delta
+ *    - Base remains unchanged
+ *    - User sees original values again
+ *
+ * WHY TRANSACTION PROXIES ≠ MEMIMG PROXIES:
+ *
+ * - **Ireneo proxies**: Track mutations, log events, wrap recursively
+ * - **Transaction proxies**: Redirect to delta, don't log until save()
+ *
+ * Can't use Ireneo proxies for transactions because:
+ * - Would log events immediately (can't discard)
+ * - Would modify base (breaks isolation)
+ * - Would create nested proxies (double-wrapping nightmare)
+ *
+ * CRITICAL FIX (Phase 9):
+ *
+ * Original transaction.ts reimplemented event replay (~40 lines).
+ * WRONG! Violated DRY principle and risked bugs.
+ * Fixed: Use replayFromEventLog() from replay.ts.
+ * Result: Eliminated duplicate logic, consistent behavior.
+ *
+ * CHECKPOINT/RESTORE (Error Recovery):
+ *
+ * UI applications can use checkpoints for script execution:
+ * 1. Create checkpoint before running user script
+ * 2. Execute script (may mutate transaction)
+ * 3. If script throws runtime error:
+ *    - Restore checkpoint (discard partial mutations)
+ *    - Show error to user
+ *    - Transaction returns to pre-script state
+ * 4. If script succeeds:
+ *    - Discard checkpoint
+ *    - User can save or discard at will
+ *
+ * Note: Syntax errors don't need checkpoints (code never executes).
+ *
+ * REFACTORING (Phase 9):
+ *
+ * Original: 505-line monolithic transaction.ts
+ * Refactored into:
+ * - transaction.ts (194 lines): Public API
+ * - delta-manager.ts (118 lines): Delta tracking
+ * - proxy-unwrapper.ts (85 lines): Deep unwrapping
+ * - transaction-proxy.ts (237 lines): Proxy creation
+ *
+ * Benefits: Clear separation of concerns, independently testable modules.
+ *
+ * This two-layer architecture (base + delta) enables UI patterns like:
+ * users can experiment freely, then commit or discard changes explicitly.
+ */
+import { DeltaManager } from "./delta-manager.js";
+import { deepUnwrap } from "./proxy-unwrapper.js";
+import { createTransactionProxy } from "./transaction-proxy.js";
+import { replayFromEventLog } from "./replay.js";
+import { serializeValueForEvent } from "./serialize.js";
+import { navigateToParent } from "./path-navigator.js";
+/**
+ * Creates a transaction
+ *
+ * @param persistentLog - Event log for permanent storage (IndexedDB/file)
+ * @returns Transaction object with root and save/discard methods
+ *
+ * @example
+ * ```typescript
+ * const persistentLog = createIndexedDBEventLog('myapp', 'events');
+ * const txn = await createTransaction(persistentLog);
+ *
+ * // Make changes (tracked in delta, not persistent yet)
+ * txn.root.user = { name: 'Alice' };
+ *
+ * // Check if dirty
+ * console.log(txn.isDirty()); // true
+ *
+ * // Commit to persistent storage
+ * await txn.save();
+ *
+ * // Make more changes
+ * txn.root.user.name = 'Bob';
+ *
+ * // Rollback changes
+ * txn.discard(); // Reverts to 'Alice'
+ * ```
+ */
+export async function createTransaction(persistentLog) {
+    // Create delta manager for tracking changes
+    const deltaManager = new DeltaManager();
+    const DELETED = deltaManager.getDeletedSymbol();
+    // Proxy cache: ensures same proxy instance for same object (preserves identity)
+    const proxyCache = new WeakMap();
+    // Reverse cache: proxy → target (to unwrap proxies during save)
+    const targetCache = new WeakMap();
+    // Create raw base object (plain object, not a proxy)
+    const baseRaw = {};
+    // Replay existing events from persistent log to rebuild state
+    // CRITICAL FIX: Use existing replayFromEventLog() instead of reimplementing!
+    // This eliminates 80+ lines of duplicate event replay logic.
+    await replayFromEventLog(baseRaw, persistentLog, { isReplaying: true });
+    // Create transaction proxy wrapper around RAW object
+    const transactionRoot = createTransactionProxy(baseRaw, deltaManager, [], proxyCache, targetCache);
+    return {
+        root: transactionRoot,
+        isDirty() {
+            return deltaManager.isDirty();
+        },
+        getUncommittedCount() {
+            return deltaManager.size();
+        },
+        async save() {
+            // Get sorted delta entries (shallowest first)
+            const sortedDelta = deltaManager.entries();
+            // Shared seen map for unwrapping - preserves identity across all delta entries
+            const seen = new WeakMap();
+            // Helper to build targetToPath map from baseRaw for reference tracking
+            const buildPathMap = (targetToPath, obj, path = []) => {
+                if (obj === null || typeof obj !== 'object')
+                    return;
+                if (targetToPath.has(obj))
+                    return; // Already visited
+                targetToPath.set(obj, path);
+                if (Array.isArray(obj)) {
+                    obj.forEach((item, idx) => buildPathMap(targetToPath, item, [...path, String(idx)]));
+                }
+                else if (obj instanceof Map) {
+                    let idx = 0;
+                    obj.forEach((val) => buildPathMap(targetToPath, val, [...path, `map:${idx++}`]));
+                }
+                else if (obj instanceof Set) {
+                    let idx = 0;
+                    obj.forEach((val) => buildPathMap(targetToPath, val, [...path, `set:${idx++}`]));
+                }
+                else if (!(obj instanceof Date)) {
+                    Object.entries(obj).forEach(([key, val]) => buildPathMap(targetToPath, val, [...path, key]));
+                }
+            };
+            // Apply delta to baseRaw and log events
+            for (const [pathStr, value] of sortedDelta) {
+                // CRITICAL: Rebuild targetToPath BEFORE each serialization
+                // This ensures objects applied in previous iterations are tracked for ref detection
+                const targetToPath = new WeakMap();
+                buildPathMap(targetToPath, baseRaw);
+                const pathParts = pathStr.split('.');
+                // Navigate to parent in baseRaw using unified path navigator
+                const navResult = navigateToParent(baseRaw, pathParts, { createIntermediates: false });
+                if (!navResult) {
+                    // Empty path, skip this entry
+                    continue;
+                }
+                const { parent: target, key: finalProp } = navResult;
+                // Apply change to baseRaw
+                if (value === DELETED) {
+                    // Handle Map/Set deletion specially
+                    if (target instanceof Map) {
+                        target.delete(finalProp);
+                    }
+                    else if (target instanceof Set) {
+                        target.delete(finalProp);
+                    }
+                    else if (target !== null && typeof target === 'object') {
+                        delete target[finalProp];
+                    }
+                    // Log DELETE event
+                    await persistentLog.append({
+                        type: 'DELETE',
+                        path: pathParts,
+                        timestamp: Date.now(),
+                    });
+                }
+                else {
+                    // Unwrap any proxies recursively before saving to baseRaw
+                    // Use shared seen map to preserve identity across circular refs
+                    const unwrappedValue = deepUnwrap(value, targetCache, seen);
+                    // CRITICAL FIX: Serialize the value BEFORE applying to baseRaw
+                    // This prevents objects in the new value from being treated as "already in graph"
+                    const serializedValue = serializeValueForEvent(unwrappedValue, new WeakMap(), // proxyToTarget (empty since value is already unwrapped)
+                    targetToPath, // targetToPath from baseRaw for reference detection
+                    pathParts);
+                    // Now apply to baseRaw (after serialization)
+                    // Handle Map/Set assignment specially
+                    if (target instanceof Map) {
+                        target.set(finalProp, unwrappedValue);
+                    }
+                    else if (target !== null && typeof target === 'object') {
+                        target[finalProp] = unwrappedValue;
+                    }
+                    // Log SET event with properly serialized value
+                    await persistentLog.append({
+                        type: 'SET',
+                        path: pathParts,
+                        value: serializedValue,
+                        timestamp: Date.now(),
+                    });
+                }
+            }
+            // Clear delta (changes now persisted)
+            deltaManager.clear();
+        },
+        discard() {
+            // Clear delta (discard uncommitted changes)
+            // BaseRaw is unmodified since all changes went to delta
+            deltaManager.clear();
+        },
+        createCheckpoint() {
+            return deltaManager.createCheckpoint();
+        },
+        restoreCheckpoint(checkpoint) {
+            deltaManager.restoreCheckpoint(checkpoint);
+        },
+        unwrap(value) {
+            // Use deepUnwrap to recursively unwrap transaction proxies
+            // Pass empty seen map for each call (stateless unwrapping)
+            return deepUnwrap(value, targetCache);
+        },
+    };
+}
+//# sourceMappingURL=transaction.js.map

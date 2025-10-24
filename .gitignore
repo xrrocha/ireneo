@@ -1,0 +1,44 @@
+# Private development notes
+.local/
+CLAUDE.md
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/lib/           # npm package artifacts (generated during npm publish)
+*.tsbuildinfo
+
+# Artifacts
+.artifacts/
+coverage/
+test-results/
+test-event-logs/
+
+# Testing artifacts
+.nyc_output/
+.test-artifacts/
+
+# Development
+.DS_Store
+*.log
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+.zed/
+.claude
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Screenshots (Playwright automation)
+screenshot*

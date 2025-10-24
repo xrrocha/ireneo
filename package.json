@@ -1,0 +1,57 @@
+{
+  "name": "ireneo",
+  "version": "0.1.0",
+  "description": "Ireneo: Event-sourced transparent persistence for JavaScript - remember everything",
+  "type": "module",
+  "main": "dist/lib/index.js",
+  "types": "dist/lib/index.d.ts",
+  "browser": "dist/ireneo.js",
+  "scripts": {
+    "build": "npm run build:lib && npm run build:browser && npm run build:demo",
+    "build:lib": "tsc",
+    "build:browser": "vite build",
+    "build:demo": "vite build --config vite.demo.config.ts",
+    "test": "npm run test:all",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:browser",
+    "test:unit": "tsx test/run-tests.ts --unit",
+    "test:integration": "tsx test/run-tests.ts --integration",
+    "test:watch": "tsx test/run-tests.ts --watch",
+    "test:filter": "tsx test/run-tests.ts --filter",
+    "test:coverage": "c8 --reporter=html --reporter=text --reporter=json-summary --reports-dir=.artifacts/coverage tsx test/run-tests.ts",
+    "test:browser": "playwright test",
+    "test:browser:ui": "playwright test --ui",
+    "test:browser:headed": "playwright test --headed",
+    "clean": "rm -rf dist .artifacts"
+  },
+  "keywords": [
+    "memory-image",
+    "event-sourcing",
+    "persistence",
+    "proxy",
+    "transparent",
+    "mutation-tracking",
+    "time-travel",
+    "ireneo",
+    "funes"
+  ],
+  "author": "Ricardo Rocha",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xrrocha/ireneo.git"
+  },
+  "homepage": "https://github.com/xrrocha/ireneo",
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.10.2",
+    "c8": "^10.1.3",
+    "glob": "^11.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3",
+    "vite": "^6.0.5",
+    "vite-plugin-singlefile": "^2.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

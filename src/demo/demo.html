@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ireneo Demo: TodoMVC with Mutation Sourcing</title>
+    <link rel="stylesheet" href="./demo.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Ireneo Demo</h1>
+            <p class="subtitle">TodoMVC with Mutation Sourcing</p>
+        </header>
+
+        <div class="app">
+            <!-- Left Panel: Todo List -->
+            <div class="panel todos-panel">
+                <div class="panel-header">
+                    <h2>📝 Todos</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="input-group">
+                        <input
+                            id="new-todo"
+                            type="text"
+                            placeholder="What needs to be done?"
+                            autocomplete="off"
+                        />
+                        <button id="add-btn" class="btn btn-primary">Add</button>
+                    </div>
+                    <div class="scrollable-content">
+                        <ul id="todo-list" class="todo-list"></ul>
+                    </div>
+                </div>
+                <div class="panel-footer">
+                    <button id="clear-all-btn" class="btn btn-danger">Clear All</button>
+                    <div class="auto-save-notice">
+                        <small style="color: var(--text-tertiary);">✨ Auto-saves on every change</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Event Log -->
+            <div class="panel events-panel">
+                <div class="panel-header">
+                    <h2>📊 Event Log</h2>
+                    <span class="subtitle">Live Mutation Tracking</span>
+                </div>
+                <div class="panel-body">
+                    <div class="scrollable-content">
+                        <div id="event-list" class="event-list"></div>
+                    </div>
+                </div>
+                <div class="panel-footer">
+                    <div class="stats">
+                        <span id="event-count" class="stat">0 events</span>
+                        <span class="separator">•</span>
+                        <span id="storage-size" class="stat">0 KB</span>
+                        <button id="theme-toggle" class="icon-btn" title="Toggle theme">🌙</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>
+                Powered by <a href="https://github.com/xrrocha/ireneo" target="_blank">Ireneo</a>
+                • No server, no database, just JavaScript
+                • <a href="https://github.com/xrrocha/ireneo/blob/main/docs/primer.md" target="_blank">Read the Primer</a>
+            </p>
+        </footer>
+    </div>
+
+    <!-- Load main module -->
+    <script type="module" src="./demo.ts"></script>
+</body>
+</html>
