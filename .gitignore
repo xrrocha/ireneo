@@ -11,6 +11,7 @@ pnpm-lock.yaml
 # Build outputs
 dist/lib/           # npm package artifacts (generated during npm publish)
 *.tsbuildinfo
+*.tgz               # npm pack tarballs
 
 # Artifacts
 .artifacts/

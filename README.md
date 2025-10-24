@@ -2,6 +2,10 @@
 
 **Event-sourced transparent persistence for JavaScript**
 
+[![npm version](https://img.shields.io/npm/v/ireneo.svg)](https://www.npmjs.com/package/ireneo)
+[![npm downloads](https://img.shields.io/npm/dm/ireneo.svg)](https://www.npmjs.com/package/ireneo)
+[![license](https://img.shields.io/npm/l/ireneo.svg)](https://github.com/xrrocha/ireneo/blob/main/LICENSE)
+
 <br>
 
 <p align="center">

@@ -1,11 +1,17 @@
 {
   "name": "ireneo",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Ireneo: Event-sourced transparent persistence for JavaScript - remember everything",
   "type": "module",
   "main": "dist/lib/index.js",
   "types": "dist/lib/index.d.ts",
   "browser": "dist/ireneo.js",
+  "files": [
+    "dist/lib",
+    "dist/ireneo.js",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "npm run build:lib && npm run build:browser && npm run build:demo",
     "build:lib": "tsc",
@@ -21,7 +27,8 @@
     "test:browser": "playwright test",
     "test:browser:ui": "playwright test --ui",
     "test:browser:headed": "playwright test --headed",
-    "clean": "rm -rf dist .artifacts"
+    "clean": "rm -rf dist .artifacts",
+    "prepublishOnly": "npm run clean && npm run build && npm test"
   },
   "keywords": [
     "memory-image",
