@@ -2,11 +2,9 @@
 
 **Event-sourced transparent persistence for JavaScript**
 
-<!-- Uncomment after npm publish:
 [![npm version](https://img.shields.io/npm/v/ireneo.svg)](https://www.npmjs.com/package/ireneo)
 [![npm downloads](https://img.shields.io/npm/dm/ireneo.svg)](https://www.npmjs.com/package/ireneo)
 [![license](https://img.shields.io/npm/l/ireneo.svg)](https://github.com/xrrocha/ireneo/blob/main/LICENSE)
--->
 
 <br>
 
@@ -69,7 +67,7 @@ Most JavaScript apps struggle with persistence: ORMs add complexity, `JSON.strin
 
 **⚠️ Development Status**
 
-Ireneo is in active development. Currently supports: primitives, objects, arrays, Maps, Sets, Dates, RegExps, and class instances. Nested Map mutations fully supported as of v0.8.0.
+Ireneo is in active development. Currently supports: primitives, objects, arrays, Maps, Sets, Dates, RegExps, and class instances. Nested Map mutations fully supported as of v0.8.1.
 
 **Roadmap:**
 - Error types (TypeError, ReferenceError, etc.)
