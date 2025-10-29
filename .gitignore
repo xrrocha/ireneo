@@ -9,7 +9,7 @@ yarn.lock
 pnpm-lock.yaml
 
 # Build outputs
-dist/lib/           # npm package artifacts (generated during npm publish)
+# dist/lib/ removed from gitignore so npm can package it
 *.tsbuildinfo
 *.tgz               # npm pack tarballs
 

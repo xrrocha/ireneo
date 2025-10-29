@@ -69,7 +69,7 @@ Most JavaScript apps struggle with persistence: ORMs add complexity, `JSON.strin
 
 **⚠️ Development Status**
 
-Ireneo is in active development. Currently supports: primitives, objects, arrays, Maps, Sets, Dates, RegExps, and class instances. Nested Map mutations fully supported as of v0.1.0.
+Ireneo is in active development. Currently supports: primitives, objects, arrays, Maps, Sets, Dates, RegExps, and class instances. Nested Map mutations fully supported as of v0.8.0.
 
 **Roadmap:**
 - Error types (TypeError, ReferenceError, etc.)

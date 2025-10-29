@@ -1,8 +1,8 @@
 # Ireneo: RFC
 
 **Status:** Active Implementation
-**Date:** 2025-10-24 (Updated)
-**Version:** 0.1.0
+**Date:** 2025-10-26 (Updated)
+**Version:** 0.8.0
 
 ---
 
